@@ -5,14 +5,15 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/mgutz/ansi"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
@@ -215,6 +216,9 @@ func (f *TextFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 		for i, key := range keys {
 			f.appendKeyValue(b, key, entry.Data[key], lastKeyIdx != i)
 		}
+		if entry.HasCaller() {
+			f.appendKeyValue(b, "location", fmt.Sprintf("%s:%d", entry.Caller.File, entry.Caller.Line), true)
+		}
 	}
 
 	b.WriteByte('\n')
@@ -284,6 +288,14 @@ func (f *TextFormatter) printColored(b *bytes.Buffer, entry *logrus.Entry, keys 
 			v := entry.Data[k]
 			fmt.Fprintf(b, " %s=%+v", levelColor(k), v)
 		}
+	}
+	if entry.HasCaller() {
+		file := entry.Caller.File
+		dir, file := filepath.Split(entry.Caller.File)
+		endIdx := strings.LastIndexByte(dir[:len(dir)-1], filepath.Separator)
+
+		path := fmt.Sprintf("%s/%s:%d", dir[endIdx+1:len(dir)-1], file, entry.Caller.Line)
+		fmt.Fprintf(b, " %s=%s", levelColor("location"), colorScheme.TimestampColor(path))
 	}
 }
 
